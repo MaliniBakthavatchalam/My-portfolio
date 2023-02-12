@@ -1,0 +1,223 @@
+Thanks you Danny Ma for the wonderful data set to  work around and explore my SQL knowledge
+Here is the link  https://8weeksqlchallenge.com/case-study-1/ to Danny's data sets and interesting questions to analyse the data with SQL querries. 
+CREATE SCHEMA dannys_diner;
+SET search_path = dannys_diner;
+
+CREATE TABLE sales (
+  "customer_id" VARCHAR(1),
+  "order_date" DATE,
+  "product_id" INTEGER
+);
+
+INSERT INTO sales
+  ("customer_id", "order_date", "product_id")
+VALUES
+  ('A', '2021-01-01', '1'),
+  ('A', '2021-01-01', '2'),
+  ('A', '2021-01-07', '2'),
+  ('A', '2021-01-10', '3'),
+  ('A', '2021-01-11', '3'),
+  ('A', '2021-01-11', '3'),
+  ('B', '2021-01-01', '2'),
+  ('B', '2021-01-02', '2'),
+  ('B', '2021-01-04', '1'),
+  ('B', '2021-01-11', '1'),
+  ('B', '2021-01-16', '3'),
+  ('B', '2021-02-01', '3'),
+  ('C', '2021-01-01', '3'),
+  ('C', '2021-01-01', '3'),
+  ('C', '2021-01-07', '3');
+ 
+
+CREATE TABLE menu (
+  "product_id" INTEGER,
+  "product_name" VARCHAR(5),
+  "price" INTEGER
+);
+
+INSERT INTO menu
+  ("product_id", "product_name", "price")
+VALUES
+  ('1', 'sushi', '10'),
+  ('2', 'curry', '15'),
+  ('3', 'ramen', '12');
+  
+
+CREATE TABLE members (
+  "customer_id" VARCHAR(1),
+  "join_date" DATE
+);
+
+INSERT INTO members
+  ("customer_id", "join_date")
+VALUES
+  ('A', '2021-01-07'),
+  ('B', '2021-01-09');
+  
+  I used Microsoft SQL server to  work on the SQL querries
+  
+Questions
+
+select s.customer_id, sum(m.price) sum from sales s
+join menu m on m.product_id = s.product_id 
+group by s.customer_id;
+
+---- Question 1 
+select customer_id, count(distinct (order_date)) as count from sales 
+group by customer_id;
+
+--/// Question 2
+with rank as
+(
+select 
+s.customer_id, m.product_name, s.order_date, 
+         dense_rank() over(partition by s.customer_id order by s.order_date asc) as orderrank
+from menu m
+ join sales s on m.product_id = s.product_id
+group by s.customer_id,m.product_name,s.order_date
+) 
+ select customer_id,product_name
+ from rank 
+ where orderrank =1;
+
+ ---/// Question 3
+Select Top 1 M.product_name , Count(S.product_id)
+From Menu m
+join Sales s
+On m.product_id = s.product_id
+Group by M.product_name
+Order by Count(S.product_id) desc
+--//
+Question 4 
+with favitem as 
+(
+select s.customer_id, m.product_name, count(s.product_id) as countproduct ,
+       dense_rank() over(partition by s.customer_id order by count(s.customer_id) desc) as rankitem
+from menu m join sales s  on s.product_id =m.product_id
+group by s.customer_id, m.product_name
+)
+
+select customer_id, product_name , countproduct
+from favitem
+where rankitem = 1
+;
+
+Question 5
+with firstitem as
+(
+select s.product_id, m.customer_id, join_date, s.order_date, dense_rank() over(partition by s.customer_id order by s.order_date ) as purchasedfirst
+from members m 
+join sales s on m.customer_id = s.customer_id
+where m.join_date <= s.order_Date
+)
+
+ select f.customer_id, f.order_date, me.product_name 
+ from firstitem f
+ join menu me on f.product_id = me.product_id 
+ where f.purchasedfirst = 1;
+
+
+ ---/Question 6
+
+ with custmemb as
+(
+select s.product_id, m.customer_id, join_date, s.order_date, dense_rank() over(partition by s.customer_id order by s.order_date desc) as purchasedfirst
+from members m 
+join sales s on m.customer_id = s.customer_id
+where m.join_date > s.order_Date
+)
+
+ select c.customer_id, c.order_date, me.product_name 
+ from custmemb c
+ join menu me on c.product_id = me.product_id 
+ where c.purchasedfirst = 1;
+
+ ---/
+Question 7 
+  with amtspt as
+(
+select s.product_id, m.customer_id, join_date, s.order_date, dense_rank() over(partition by s.customer_id order by s.order_date desc) as purchasedfirst
+from members m 
+join sales s on m.customer_id = s.customer_id
+where m.join_date > s.order_Date
+)
+
+ select a.customer_id, count(*) as itemcount,sum(me.price) astotalprice
+ from amtspt a
+ join menu me on a.product_id = me.product_id 
+ group by a.customer_id;
+
+ ---/Question 8
+
+ select t1.customer_id, sum(t1.eqpoint) as totlprice
+ from (
+select s.customer_id ,s.order_date, sum (case when m.product_name ='sushi' then price* 20 else price* 10 end)eqpoint
+from menu m
+join sales s on m.product_id = s.product_id
+group by customer_id,order_date ) t1
+join members me on me.customer_id = t1.customer_id
+where  t1.order_date < DATEADD ( DAY, 6,me.join_date)
+group by t1.customer_id;
+
+---/Question 9
+WITH dates_cte AS 
+(
+ SELECT *, 
+  DATEADD(DAY, 6, join_date) AS valid_date, 
+  EOMONTH('2021-01-31') AS last_date
+ FROM members AS me
+)
+
+select dc.customer_id,dc.join_date, dc.valid_date,s.order_date, dc.last_date,m.product_name,m.price, 
+         sum(case 
+		 when m.product_name ='sushi' then m.price*2*10 
+		 when s.order_date between dc.join_date and dc.valid_date then m.price*2*10 
+		 ELSE price *10 
+		 end ) as pointscore
+from dates_cte as dc 
+join sales s on dc.customer_id = s.customer_id
+join menu m on m.product_id =s.product_id
+where s.order_date < dc.valid_date
+group by dc.customer_id,dc.join_date, dc.valid_date,s.order_date, dc.last_date,m.product_name,m.price
+----/
+Question 10
+SELECT 
+	s.customer_id,
+    s.order_date,
+    m.product_name,
+    m.price,
+		CASE
+			WHEN mb.join_date > s.order_date THEN 'N'
+            WHEN mb.join_date <= s.order_date THEN 'Y'
+            ELSE 'N'
+		END AS is_member
+	FROM sales s
+    LEFT JOIN menu m ON s.product_id = m.product_id
+    LEFT JOIN members mb ON mb.customer_id = s.customer_id
+    ORDER BY s.customer_id;
+	--/
+BONUS QUESTION
+with belong as
+	(select 
+	s.customer_id,
+    s.order_date,
+    m.product_name,
+    m.price,
+		CASE
+			WHEN mb.join_date > s.order_date THEN 'N'
+            WHEN mb.join_date <= s.order_date THEN 'Y'
+            ELSE 'N'
+		END  is_member
+	FROM sales s
+    LEFT JOIN menu m ON s.product_id = m.product_id
+    LEFT JOIN members mb ON mb.customer_id = s.customer_id
+    ORDER BY s.customer_id)
+
+	select *,
+			case when is_member = 'N' then null 
+	          else rank() over(partition by customer_id,is_member order by order_date) end as rank
+	from belong ;
+
+
+I did learn a lot from the data and writing SQL queries. It was a huge help for my SQL knowledge
+
