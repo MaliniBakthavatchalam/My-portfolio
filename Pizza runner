@@ -1,0 +1,58 @@
+                        Pizza Runner
+I really learnt a lot working on this Danny Ma's case study
+link to the case is here https://8weeksqlchallenge.com/case-study-2/
+
+Data cleaning the two tables 
+DROP TEMPORARY TABLE IF EXISTS temprunorders;
+CREATE TEMPORARY TABLE temprunorders (
+SELECT 
+   order_id,
+   	runner_id,
+   	CASE 
+   	WHEN pickup_time LIKE '%null%' THEN ' ' 
+       ELSE pickup_time
+   END AS pickup_time,
+   	CASE
+     WHEN distance LIKE '%null%' THEN ' '
+     WHEN distance LIKE '%km%' THEN TRIM('km' from distance)
+     ELSE distance 
+   	END AS distance,
+ 	CASE
+     WHEN duration LIKE '%null%' THEN ' '
+     WHEN duration LIKE '%mins%' THEN TRIM('mins' from duration)
+     WHEN duration LIKE '%minute%' THEN TRIM('minute' from duration)
+     WHEN duration LIKE '%minutes%' THEN TRIM('minutes' from duration)
+     ELSE duration
+   END AS duration,
+ 	CASE
+     WHEN cancellation IS NULL or cancellation LIKE '%null%' THEN ' '
+     ELSE cancellation
+   END AS cancellation
+FROM runner_orders);
+
+ALTER TABLE temprunorders
+MODIFY COLUMN pickup_time DATETIME,
+MODIFY COLUMN distance FLOAT,
+MODIFY COLUMN duration INT;
+
+-- Customer orders temporary table
+DROP TEMPORARY TABLE IF EXISTS tempcustorders;
+CREATE TEMPORARY TABLE tempcustorders (
+SELECT
+   order_id,
+   customer_id,
+   pizza_id,
+   CASE
+   WHEN exclusions LIKE '%null%' THEN ' '
+   ELSE exclusions
+   END AS exclusions,
+   CASE
+   WHEN extras LIKE '%null%' THEN ' '
+       WHEN extras is null THEN ' '
+   ELSE extras
+   END AS extras,
+   order_time
+FROM customer_orders);
+
+
+I did like to work on the all the questions, but the first pizza metrics I took as an example and worked out problems whereas the rest I will try to post it here 
